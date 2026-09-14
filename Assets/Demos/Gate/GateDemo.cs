@@ -41,6 +41,7 @@ namespace Jongreul.AuthorityRequest.Demos
         SkillView[] _views;
         Text _statsText;
         Text _logText;
+        Toggle _bypassToggle;
         bool _bypassGate;
         long _naiveSequence;
         int _taps;
@@ -116,6 +117,8 @@ namespace Jongreul.AuthorityRequest.Demos
         public void SetBypassGate(bool bypass)
         {
             _bypassGate = bypass;
+            if (_bypassToggle != null)
+                _bypassToggle.SetIsOnWithoutNotify(bypass);
             Log(bypass ? "Gate bypassed: every tap goes to the server" : "Gate enabled");
         }
 
@@ -201,6 +204,7 @@ namespace Jongreul.AuthorityRequest.Demos
             }
 
             _statsText.text =
+                $"Mode  <b>{(_bypassGate ? "NO GATE (naive)" : "GATED")}</b>     " +
                 $"Taps  <b>{_taps}</b>     Requests sent  <b>{requestsSent}</b>     Rejected locally  <b>{rejectedLocally}</b>\n" +
                 $"Server executed  <b>{_server.ActionsExecuted}</b>     Server rejected  <b>{_serverRejected}</b>     Ignored responses  <b>{ignored}</b>";
         }
@@ -229,11 +233,12 @@ namespace Jongreul.AuthorityRequest.Demos
 
             // 서버 설정
             DemoUi.CreateText(left, "ServerHeader", "Mock server", 18, TextAnchor.MiddleLeft, DemoUi.Muted).Height(26);
-            DemoUi.CreateSlider(left, "Latency", 0, 1000, latencyMs, v => $"{v:0} ms", v => { latencyMs = v; ApplyServerSettings(); }).Height(30);
-            DemoUi.CreateSlider(left, "Jitter", 0, 500, jitterMs, v => $"{v:0} ms", v => { jitterMs = v; ApplyServerSettings(); }).Height(30);
-            DemoUi.CreateSlider(left, "Failure rate", 0, 100, failurePercent, v => $"{v:0} %", v => { failurePercent = v; ApplyServerSettings(); }).Height(30);
-            DemoUi.CreateSlider(left, "Duplicate responses", 0, 100, duplicatePercent, v => $"{v:0} %", v => { duplicatePercent = v; ApplyServerSettings(); }).Height(30);
-            DemoUi.CreateToggle(left, "Bypass gate (naive client: every tap is a request)", false, SetBypassGate).Height(30);
+            DemoUi.CreateSlider(left, "Latency", 0, 1000, latencyMs, v => $"{v:0} ms", v => { latencyMs = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(left, "Jitter", 0, 500, jitterMs, v => $"{v:0} ms", v => { jitterMs = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(left, "Failure rate", 0, 100, failurePercent, v => $"{v:0} %", v => { failurePercent = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(left, "Duplicate responses", 0, 100, duplicatePercent, v => $"{v:0} %", v => { duplicatePercent = v; ApplyServerSettings(); });
+            _bypassToggle = DemoUi.CreateToggle(left, "Bypass gate (naive client: every tap is a request)", false, SetBypassGate);
+            _bypassToggle.Height(30);
 
             // 오른쪽: 로그
             Image logPanel = DemoUi.CreatePanel(canvas, "LogPanel", DemoUi.Panel);

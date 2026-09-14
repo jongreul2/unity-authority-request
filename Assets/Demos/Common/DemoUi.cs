@@ -105,6 +105,10 @@ namespace Jongreul.AuthorityRequest.Demos
             Func<float, string> format, Action<float> onChanged)
         {
             RectTransform row = CreateRect(parent, label);
+            // 세로 레이아웃 안에서 높이를 갖는 것은 행이다(슬라이더는 행 안에 앵커로 배치).
+            var rowLayout = row.gameObject.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = 30;
+            rowLayout.minHeight = 30;
             Text name = CreateText(row, "Name", label, 16, TextAnchor.MiddleLeft, Muted);
             name.rectTransform.Place(new Vector2(0, 0), new Vector2(0.38f, 1));
             Text valueText = CreateText(row, "Value", format(value), 16, TextAnchor.MiddleRight);
