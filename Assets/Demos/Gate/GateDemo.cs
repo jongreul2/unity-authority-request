@@ -14,7 +14,10 @@ namespace Jongreul.AuthorityRequest.Demos
     public sealed class GateDemo : MonoBehaviour
     {
         const int NaiveActionOffset = 100;
-        const int LogLines = 14;
+        const int LogLines = 12;
+        const int LaneTaps = 0;
+        const int LaneRequests = 1;
+        const int LaneServer = 2;
 
         static readonly string[] SkillNames = { "Skill A", "Skill B", "Skill C" };
         static readonly double[] SkillCooldowns = { 1.0, 2.5, 5.0 };
@@ -26,10 +29,10 @@ namespace Jongreul.AuthorityRequest.Demos
 
         sealed class SkillView
         {
-            public Image Background;
-            public Text Label;
+            public Image Accent;
             public Text State;
-            public RectTransform CooldownBar;
+            public Text Countdown;
+            public RectTransform CooldownFill;
         }
 
         readonly Queue<string> _log = new Queue<string>();
@@ -39,9 +42,17 @@ namespace Jongreul.AuthorityRequest.Demos
         MockGateServer _server;
         ActionGate[] _gates;
         SkillView[] _views;
-        Text _statsText;
+        TimelineView _timeline;
         Text _logText;
         Toggle _bypassToggle;
+        Image _modePill;
+        Text _modeText;
+        Text _tapsValue;
+        Text _requestsValue;
+        Text _rejectedValue;
+        Text _executedValue;
+        Text _serverRejectedValue;
+        Text _ignoredValue;
         bool _bypassGate;
         long _naiveSequence;
         int _taps;
@@ -68,8 +79,9 @@ namespace Jongreul.AuthorityRequest.Demos
 
                 var gate = new ActionGate(actionId, _server, _clock);
                 string skill = SkillNames[i];
-                gate.Transitioned += t => Log($"{skill}: {t.From} → {t.To} ({t.Reason})");
-                gate.ResponseIgnored += (r, reason) => Log($"{skill}: ignored {reason} response seq {r.Sequence}");
+                gate.Transitioned += t => OnTransition(skill, t);
+                gate.ResponseIgnored += (r, reason) =>
+                    Log($"{skill}  ignored {reason.ToString().ToLowerInvariant()} response  seq {r.Sequence}", DemoUi.Pending);
                 _gates[i] = gate;
             }
 
@@ -100,14 +112,20 @@ namespace Jongreul.AuthorityRequest.Demos
             if (_bypassGate)
             {
                 _naiveRequests++;
+                _timeline?.Add(LaneTaps, DemoUi.Accent);
+                _timeline?.Add(LaneRequests, DemoUi.Pending);
                 _server.Send(new GateRequest(index + 1 + NaiveActionOffset, ++_naiveSequence));
-                Log($"{SkillNames[index]}: sent without gate (seq {_naiveSequence})");
+                Log($"{SkillNames[index]}  sent without gate  seq {_naiveSequence}", DemoUi.Danger);
                 return;
             }
 
             GateInputResult result = _gates[index].TryActivate();
+            _timeline?.Add(LaneTaps, result == GateInputResult.Sent ? DemoUi.Accent : DemoUi.Muted);
             if (result != GateInputResult.Sent)
-                Log($"{SkillNames[index]}: tap rejected locally ({result})");
+            {
+                string why = result == GateInputResult.RejectedPending ? "waiting for server" : "cooling down";
+                Log($"{SkillNames[index]}  tap blocked locally ({why})", DemoUi.Muted);
+            }
         }
 
         /// <summary>연타 흉내. 간격 초마다 count번 누른다.</summary>
@@ -119,7 +137,7 @@ namespace Jongreul.AuthorityRequest.Demos
             _bypassGate = bypass;
             if (_bypassToggle != null)
                 _bypassToggle.SetIsOnWithoutNotify(bypass);
-            Log(bypass ? "Gate bypassed: every tap goes to the server" : "Gate enabled");
+            Log(bypass ? "Gate OFF: every tap becomes a request" : "Gate ON", bypass ? DemoUi.Danger : DemoUi.Ready);
         }
 
         public void SetLatency(float ms)
@@ -145,20 +163,50 @@ namespace Jongreul.AuthorityRequest.Demos
             _server.DuplicateRate = duplicatePercent / 100.0;
         }
 
+        void OnTransition(string skill, GateTransition transition)
+        {
+            switch (transition.Reason)
+            {
+                case GateTransitionReason.RequestSent:
+                    _timeline?.Add(LaneRequests, DemoUi.Pending);
+                    Log($"{skill}  request sent  seq {transition.Sequence}", DemoUi.TextColor);
+                    break;
+                case GateTransitionReason.ServerSuccess:
+                    Log($"{skill}  server OK → cooldown starts", DemoUi.Ready);
+                    break;
+                case GateTransitionReason.ServerFail:
+                    Log($"{skill}  server said no → ready again", DemoUi.Danger);
+                    break;
+                case GateTransitionReason.PendingTimeout:
+                    Log($"{skill}  no answer in time → ready again", DemoUi.Danger);
+                    break;
+                case GateTransitionReason.CooldownElapsed:
+                    Log($"{skill}  ready", DemoUi.Muted);
+                    break;
+            }
+        }
+
         void OnRequestJudged(GateRequest request, GateResponse response)
         {
             bool naive = request.ActionId > NaiveActionOffset;
             int index = (naive ? request.ActionId - NaiveActionOffset : request.ActionId) - 1;
-            if (!response.Success)
+            if (response.Success)
+            {
+                _timeline?.Add(LaneServer, DemoUi.Ready);
+                Log($"SERVER  executed {SkillNames[index]}  (cooldown {response.CooldownSeconds:0.0}s)", DemoUi.Ready, bold: true);
+            }
+            else
+            {
                 _serverRejected++;
-            Log(response.Success
-                ? $"SERVER: {SkillNames[index]} executed, cooldown {response.CooldownSeconds:0.0}s"
-                : $"SERVER: {SkillNames[index]} rejected ({response.FailReason})");
+                _timeline?.Add(LaneServer, DemoUi.Danger);
+                Log($"SERVER  rejected {SkillNames[index]}  ({response.FailReason})", DemoUi.Danger, bold: true);
+            }
         }
 
-        void Log(string line)
+        void Log(string line, Color color, bool bold = false)
         {
-            _log.Enqueue($"[{_clock.Now - _startTime,6:0.00}] {line}");
+            string body = bold ? $"<b>{line}</b>" : line;
+            _log.Enqueue($"<color={DemoUi.Hex(DemoUi.Muted)}>{_clock.Now - _startTime,6:0.00}</color>   <color={DemoUi.Hex(color)}>{body}</color>");
             while (_log.Count > LogLines)
                 _log.Dequeue();
 
@@ -183,31 +231,45 @@ namespace Jongreul.AuthorityRequest.Demos
                 ignored += gate.Stats.ResponsesIgnored;
 
                 SkillView view = _views[i];
+                float remaining = 0f;
                 switch (gate.State)
                 {
                     case GateState.Ready:
-                        view.Background.color = DemoUi.Ready;
+                        view.Accent.color = DemoUi.Ready;
                         view.State.text = "READY";
+                        view.Countdown.text = "";
                         break;
                     case GateState.Pending:
-                        view.Background.color = DemoUi.Pending;
-                        view.State.text = $"WAITING FOR SERVER (seq {gate.PendingSequence})";
+                        view.Accent.color = DemoUi.Pending;
+                        view.State.text = $"WAITING FOR SERVER · seq {gate.PendingSequence}";
+                        view.Countdown.text = "…";
                         break;
                     default:
-                        view.Background.color = DemoUi.Cooldown;
-                        view.State.text = $"COOLDOWN {gate.CooldownRemaining:0.0}s  (server value {gate.CooldownDuration:0.0}s)";
+                        view.Accent.color = DemoUi.Cooldown;
+                        view.State.text = $"COOLDOWN · length from server {gate.CooldownDuration:0.0}s";
+                        view.Countdown.text = $"{gate.CooldownRemaining:0.0}s";
+                        remaining = (float)(1 - gate.CooldownProgress);
                         break;
                 }
 
-                float remaining = gate.State == GateState.Cooldown ? (float)(1 - gate.CooldownProgress) : 0f;
-                view.CooldownBar.anchorMax = new Vector2(remaining, 1);
+                view.State.color = gate.State == GateState.Ready ? DemoUi.Ready : DemoUi.Muted;
+                view.CooldownFill.anchorMax = new Vector2(remaining, 1);
             }
 
-            _statsText.text =
-                $"Mode  <b>{(_bypassGate ? "NO GATE (naive)" : "GATED")}</b>     " +
-                $"Taps  <b>{_taps}</b>     Requests sent  <b>{requestsSent}</b>     Rejected locally  <b>{rejectedLocally}</b>\n" +
-                $"Server executed  <b>{_server.ActionsExecuted}</b>     Server rejected  <b>{_serverRejected}</b>     Ignored responses  <b>{ignored}</b>";
+            _tapsValue.text = _taps.ToString();
+            _requestsValue.text = requestsSent.ToString();
+            _rejectedValue.text = rejectedLocally.ToString();
+            _executedValue.text = _server.ActionsExecuted.ToString();
+            _serverRejectedValue.text = _serverRejected.ToString();
+            _ignoredValue.text = ignored.ToString();
+
+            _modePill.color = _bypassGate ? DemoUi.Danger : DemoUi.Ready;
+            _modeText.text = _bypassGate ? "GATE OFF" : "GATE ON";
+
+            _timeline.Update();
         }
+
+        #region UI
 
         void BuildUi()
         {
@@ -219,65 +281,142 @@ namespace Jongreul.AuthorityRequest.Demos
             }
 
             RectTransform canvas = DemoUi.CreateCanvas(cam);
-            Text title = DemoUi.CreateText(canvas, "Title", "<b>Response Gate</b>  —  the server response is the authority", 26);
-            title.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(32, -64), new Vector2(-32, -16));
+            Image background = DemoUi.CreatePanel(canvas, "Background", DemoUi.Background);
+            background.rectTransform.Place(Vector2.zero, Vector2.one);
+            background.raycastTarget = false;
 
-            // 왼쪽: 스킬 버튼
-            RectTransform left = DemoUi.CreatePanel(canvas, "Skills", DemoUi.Panel).rectTransform
-                .Place(new Vector2(0, 0), new Vector2(0.5f, 1), new Vector2(32, 150), new Vector2(-12, -80));
-            left.Stack(14, 18);
+            BuildHeader(canvas);
+            BuildControls(canvas);
+            BuildTimelineAndLog(canvas);
+            BuildMetrics(canvas);
+        }
+
+        void BuildHeader(RectTransform canvas)
+        {
+            DemoUi.CreateText(canvas, "Title", "Response Gate", 30, bold: true).rectTransform
+                .Place(new Vector2(0, 1), new Vector2(0.7f, 1), new Vector2(32, -60), new Vector2(0, -16));
+            DemoUi.CreateText(canvas, "Subtitle",
+                    "Taps are blocked until the server answers. The cooldown length comes from the server, not the client.",
+                    16, TextAnchor.MiddleLeft, DemoUi.Muted).rectTransform
+                .Place(new Vector2(0, 1), new Vector2(0.8f, 1), new Vector2(32, -92), new Vector2(0, -60));
+
+            _modePill = DemoUi.CreatePanel(canvas, "Mode", DemoUi.Ready, 18);
+            _modePill.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-200, -64), new Vector2(-32, -28));
+            _modeText = DemoUi.CreateText(_modePill.transform, "Label", "GATE ON", 16, TextAnchor.MiddleCenter, bold: true);
+            _modeText.rectTransform.Place(Vector2.zero, Vector2.one);
+        }
+
+        void BuildControls(RectTransform canvas)
+        {
+            RectTransform left = DemoUi.CreateRect(canvas, "Controls")
+                .Place(new Vector2(0, 0), new Vector2(0.5f, 1), new Vector2(32, 158), new Vector2(-10, -106));
+            left.Stack(10, 0);
 
             _views = new SkillView[SkillNames.Length];
             for (int i = 0; i < SkillNames.Length; i++)
                 _views[i] = BuildSkillRow(left, i);
 
-            // 서버 설정
-            DemoUi.CreateText(left, "ServerHeader", "Mock server", 18, TextAnchor.MiddleLeft, DemoUi.Muted).Height(26);
-            DemoUi.CreateSlider(left, "Latency", 0, 1000, latencyMs, v => $"{v:0} ms", v => { latencyMs = v; ApplyServerSettings(); });
-            DemoUi.CreateSlider(left, "Jitter", 0, 500, jitterMs, v => $"{v:0} ms", v => { jitterMs = v; ApplyServerSettings(); });
-            DemoUi.CreateSlider(left, "Failure rate", 0, 100, failurePercent, v => $"{v:0} %", v => { failurePercent = v; ApplyServerSettings(); });
-            DemoUi.CreateSlider(left, "Duplicate responses", 0, 100, duplicatePercent, v => $"{v:0} %", v => { duplicatePercent = v; ApplyServerSettings(); });
-            _bypassToggle = DemoUi.CreateToggle(left, "Bypass gate (naive client: every tap is a request)", false, SetBypassGate);
+            Image server = DemoUi.CreatePanel(left, "Server", DemoUi.Panel, 12).Height(212);
+            server.rectTransform.Stack(2, 14);
+            DemoUi.CreateText(server.rectTransform, "Header", "MOCK SERVER", 13, TextAnchor.MiddleLeft, DemoUi.Muted, bold: true).Height(22);
+            DemoUi.CreateSlider(server.rectTransform, "Latency", 0, 1000, latencyMs, v => $"{v:0} ms", v => { latencyMs = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(server.rectTransform, "Jitter", 0, 500, jitterMs, v => $"{v:0} ms", v => { jitterMs = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(server.rectTransform, "Failure rate", 0, 100, failurePercent, v => $"{v:0} %", v => { failurePercent = v; ApplyServerSettings(); });
+            DemoUi.CreateSlider(server.rectTransform, "Duplicate replies", 0, 100, duplicatePercent, v => $"{v:0} %", v => { duplicatePercent = v; ApplyServerSettings(); });
+            _bypassToggle = DemoUi.CreateToggle(server.rectTransform, "Bypass gate (every tap becomes a request)", false, SetBypassGate);
             _bypassToggle.Height(30);
-
-            // 오른쪽: 로그
-            Image logPanel = DemoUi.CreatePanel(canvas, "LogPanel", DemoUi.Panel);
-            logPanel.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(1, 1), new Vector2(12, 150), new Vector2(-32, -80));
-            _logText = DemoUi.CreateText(logPanel.transform, "Log", "", 15, TextAnchor.UpperLeft);
-            _logText.rectTransform.Place(Vector2.zero, Vector2.one, new Vector2(16, 12), new Vector2(-16, -12));
-            _logText.supportRichText = false;
-
-            // 아래: 통계
-            Image statsPanel = DemoUi.CreatePanel(canvas, "Stats", DemoUi.PanelLight);
-            statsPanel.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(32, 24), new Vector2(-32, 132));
-            _statsText = DemoUi.CreateText(statsPanel.transform, "StatsText", "", 20, TextAnchor.MiddleCenter);
-            _statsText.rectTransform.Place(Vector2.zero, Vector2.one);
         }
 
         SkillView BuildSkillRow(RectTransform parent, int index)
         {
             RectTransform row = DemoUi.CreateRect(parent, SkillNames[index]);
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 64;
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 64;
+            layout.minHeight = 64;
 
-            Button tap = DemoUi.CreateButton(row, "Tap", SkillNames[index], () => Tap(index), DemoUi.Ready, 20);
-            ((RectTransform)tap.transform).Place(new Vector2(0, 0), new Vector2(0.78f, 1));
-            var view = new SkillView
-            {
-                Background = tap.GetComponent<Image>(),
-                Label = tap.GetComponentInChildren<Text>(),
-            };
-            view.Label.rectTransform.Place(new Vector2(0, 0.45f), new Vector2(1, 1));
+            Button card = DemoUi.CreateButton(row, "Card", SkillNames[index], () => Tap(index), DemoUi.Panel, 20, 12);
+            ((RectTransform)card.transform).Place(Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-128, 0));
+            Text name = card.GetComponentInChildren<Text>();
+            name.alignment = TextAnchor.MiddleLeft;
+            name.rectTransform.Place(new Vector2(0, 0.45f), new Vector2(0.7f, 1), new Vector2(28, 0), new Vector2(0, -4));
 
-            view.State = DemoUi.CreateText(tap.transform, "State", "", 13, TextAnchor.MiddleCenter);
-            view.State.rectTransform.Place(new Vector2(0, 0.08f), new Vector2(1, 0.5f));
+            var view = new SkillView();
+            view.Accent = DemoUi.CreatePanel(card.transform, "Accent", DemoUi.Ready, 3);
+            view.Accent.raycastTarget = false;
+            view.Accent.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(10, 12), new Vector2(16, -12));
 
-            Image bar = DemoUi.CreatePanel(tap.transform, "CooldownBar", new Color(1, 1, 1, 0.18f));
-            bar.raycastTarget = false;
-            view.CooldownBar = bar.rectTransform.Place(Vector2.zero, new Vector2(0, 1));
+            view.State = DemoUi.CreateText(card.transform, "State", "", 13, TextAnchor.MiddleLeft, DemoUi.Muted, bold: true);
+            view.State.rectTransform.Place(new Vector2(0, 0.14f), new Vector2(0.8f, 0.5f), new Vector2(28, 0), Vector2.zero);
 
-            Button mash = DemoUi.CreateButton(row, "Mash", "Mash ×10", () => Mash(index), DemoUi.Accent, 16);
-            ((RectTransform)mash.transform).Place(new Vector2(0.8f, 0), new Vector2(1, 1));
+            view.Countdown = DemoUi.CreateText(card.transform, "Countdown", "", 26, TextAnchor.MiddleRight, bold: true);
+            view.Countdown.rectTransform.Place(new Vector2(0.6f, 0), new Vector2(1, 1), Vector2.zero, new Vector2(-18, 0));
+
+            Image track = DemoUi.CreatePanel(card.transform, "CooldownTrack", DemoUi.Track);
+            track.raycastTarget = false;
+            track.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(28, 7), new Vector2(-18, 10));
+            Image fill = DemoUi.CreatePanel(track.transform, "Fill", DemoUi.Cooldown);
+            fill.raycastTarget = false;
+            view.CooldownFill = fill.rectTransform.Place(Vector2.zero, new Vector2(0, 1));
+
+            Button mash = DemoUi.CreateButton(row, "Mash", "Mash ×10", () => Mash(index), DemoUi.Accent, 16, 12);
+            ((RectTransform)mash.transform).Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(-118, 0), Vector2.zero);
             return view;
         }
+
+        void BuildTimelineAndLog(RectTransform canvas)
+        {
+            Image timeline = DemoUi.CreatePanel(canvas, "Timeline", DemoUi.Panel, 12);
+            timeline.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(1, 1), new Vector2(10, -270), new Vector2(-32, -106));
+            DemoUi.CreateText(timeline.transform, "Header", "LAST 8 SECONDS", 13, TextAnchor.MiddleLeft, DemoUi.Muted, bold: true)
+                .rectTransform.Place(new Vector2(0, 1), new Vector2(0.5f, 1), new Vector2(16, -34), new Vector2(0, -10));
+            Text legend = DemoUi.CreateText(timeline.transform, "Legend",
+                $"<color={DemoUi.Hex(DemoUi.Accent)}>●</color> tap → request   <color={DemoUi.Hex(DemoUi.Muted)}>●</color> blocked   " +
+                $"<color={DemoUi.Hex(DemoUi.Ready)}>●</color> executed   <color={DemoUi.Hex(DemoUi.Danger)}>●</color> rejected",
+                13, TextAnchor.MiddleRight, DemoUi.Muted);
+            legend.rectTransform.Place(new Vector2(0.4f, 1), new Vector2(1, 1), new Vector2(0, -34), new Vector2(-16, -10));
+
+            RectTransform lanes = DemoUi.CreateRect(timeline.transform, "Lanes")
+                .Place(Vector2.zero, Vector2.one, new Vector2(16, 10), new Vector2(-12, -38));
+            _timeline = new TimelineView(lanes, new[] { "Taps", "Requests", "Server" }, () => _clock.Now, 8f);
+
+            Image logPanel = DemoUi.CreatePanel(canvas, "LogPanel", DemoUi.Panel, 12);
+            logPanel.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(1, 1), new Vector2(10, 158), new Vector2(-32, -282));
+            DemoUi.CreateText(logPanel.transform, "Header", "EVENT LOG", 13, TextAnchor.MiddleLeft, DemoUi.Muted, bold: true)
+                .rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -34), new Vector2(-16, -10));
+            _logText = DemoUi.CreateText(logPanel.transform, "Log", "", 14, TextAnchor.UpperLeft);
+            _logText.rectTransform.Place(Vector2.zero, Vector2.one, new Vector2(16, 10), new Vector2(-16, -38));
+            _logText.supportRichText = true;
+        }
+
+        void BuildMetrics(RectTransform canvas)
+        {
+            RectTransform metrics = DemoUi.CreateRect(canvas, "Metrics")
+                .Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(32, 24), new Vector2(-32, 140));
+            var row = metrics.gameObject.AddComponent<HorizontalLayoutGroup>();
+            row.spacing = 12;
+            row.childControlWidth = true;
+            row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            row.childForceExpandHeight = true;
+
+            _tapsValue = BuildMetric(metrics, "Taps", DemoUi.PanelLight);
+            _requestsValue = BuildMetric(metrics, "Requests sent", new Color(0.15f, 0.22f, 0.4f));
+            _rejectedValue = BuildMetric(metrics, "Blocked locally", DemoUi.PanelLight);
+            _executedValue = BuildMetric(metrics, "Server executed", new Color(0.12f, 0.28f, 0.21f));
+            _serverRejectedValue = BuildMetric(metrics, "Server rejected", DemoUi.PanelLight);
+            _ignoredValue = BuildMetric(metrics, "Ignored replies", DemoUi.PanelLight);
+        }
+
+        static Text BuildMetric(RectTransform parent, string label, Color color)
+        {
+            Image tile = DemoUi.CreatePanel(parent, label, color, 12);
+            Text value = DemoUi.CreateText(tile.transform, "Value", "0", 36, TextAnchor.MiddleCenter, bold: true);
+            value.rectTransform.Place(new Vector2(0, 0.36f), new Vector2(1, 1), Vector2.zero, new Vector2(0, -6));
+            DemoUi.CreateText(tile.transform, "Label", label, 14, TextAnchor.MiddleCenter, DemoUi.Muted).rectTransform
+                .Place(new Vector2(0, 0), new Vector2(1, 0.4f), new Vector2(0, 10), Vector2.zero);
+            return value;
+        }
+
+        #endregion
     }
 }
