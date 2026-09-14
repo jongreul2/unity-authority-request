@@ -29,15 +29,26 @@ namespace Jongreul.AuthorityRequest.Networking
         [SerializeField] GrabbableView[] objects = Array.Empty<GrabbableView>();
         [SerializeField, Range(1, 2)] int maxHeldTotal = 1;
         [SerializeField] HeldLimitPolicy whenFull = HeldLimitPolicy.RejectNew;
+
+        [Header("정지 판정(서버)")]
         [SerializeField] float restSpeed = 0.05f;
+        [SerializeField] float restAngularSpeed = 0.1f;
         [SerializeField] int restTicks = 10;
+        [SerializeField] float minSettleSeconds = 0.3f;
+
+        [Header("릴리즈 검증(서버)")]
+        [SerializeField] float maxReleaseOffset = 0.75f;
+        [SerializeField] float maxThrowSpeed = 15f;
+
         [SerializeField, Range(0.05f, 1f)] float proxySmoothing = 0.35f;
 
         readonly Dictionary<int, GrabbableView> _views = new Dictionary<int, GrabbableView>();
         readonly Dictionary<int, int> _releaseGeneration = new Dictionary<int, int>();
         readonly Dictionary<int, int> _stillTicks = new Dictionary<int, int>();
+        readonly Dictionary<int, float> _releaseTime = new Dictionary<int, float>();
 
         GrabArbiter _arbiter;
+        int _releasingByRpc = GrabIds.None;
 
         [Networked, Capacity(MaxObjects)]
         NetworkDictionary<int, GrabbableNetState> States { get; }
@@ -62,6 +73,19 @@ namespace Jongreul.AuthorityRequest.Networking
             {
                 if (view == null)
                     continue;
+
+                if (_views.Count >= MaxObjects)
+                {
+                    Debug.LogError($"[{nameof(GrabAuthority)}] 오브젝트가 {MaxObjects}개를 넘는다. 나머지는 무시한다.", this);
+                    break;
+                }
+
+                if (_views.ContainsKey(view.Id))
+                {
+                    Debug.LogError($"[{nameof(GrabAuthority)}] 같은 Id({view.Id})의 뷰가 둘 이상이다: {view.name}", view);
+                    continue;
+                }
+
                 _views.Add(view.Id, view);
                 view.Bind(this, Runner.LocalPlayer.RawEncoded, HasStateAuthority);
             }
@@ -79,6 +103,11 @@ namespace Jongreul.AuthorityRequest.Networking
         {
             if (_arbiter != null)
                 _arbiter.Changed -= OnArbiterChanged;
+
+            // 사라진 권위 오브젝트로 RPC를 보내지 않게 뷰 연결을 끊는다.
+            foreach (GrabbableView view in _views.Values)
+                view.Unbind();
+            _views.Clear();
         }
 
         public void PlayerLeft(PlayerRef player)
@@ -115,17 +144,36 @@ namespace Jongreul.AuthorityRequest.Networking
         public void RPC_Release(int objectId, Vector3 position, Quaternion rotation, Vector3 velocity,
             RpcInfo info = default)
         {
-            if (!HasStateAuthority || _arbiter == null)
+            if (!HasStateAuthority || _arbiter == null || !_views.TryGetValue(objectId, out GrabbableView view))
                 return;
 
-            ReleaseResult result = _arbiter.RequestRelease(info.Source.RawEncoded, objectId,
-                PoseConversions.ToPoseData(position, rotation));
-            if (!result.Accepted || !_views.TryGetValue(objectId, out GrabbableView view))
+            int player = info.Source.RawEncoded;
+            if (_arbiter.GetOwner(objectId) != player || !_arbiter.TryGetSnapshot(objectId, out GrabbableSnapshot held))
                 return;
 
-            _releaseGeneration[objectId] = result.Generation;
-            _stillTicks[objectId] = 0;
-            view.BeginServerPhysics(position, rotation, velocity);
+            // 클라이언트 값은 참고만 한다. 마지막으로 받은 손 자세에서 너무 멀면 그 자세를 쓰고, 속도는 상한으로 자른다.
+            if (Vector3.Distance(position, held.Pose.Position()) > maxReleaseOffset)
+            {
+                position = held.Pose.Position();
+                rotation = held.Pose.Rotation();
+            }
+
+            velocity = Vector3.ClampMagnitude(velocity, maxThrowSpeed);
+
+            // 판정 중 발생하는 Changed 이벤트가 "서버가 직접 놓은 경우"로 처리되지 않게 표시해 둔다.
+            ReleaseResult result;
+            _releasingByRpc = objectId;
+            try
+            {
+                result = _arbiter.RequestRelease(player, objectId, PoseConversions.ToPoseData(position, rotation));
+            }
+            finally
+            {
+                _releasingByRpc = GrabIds.None;
+            }
+
+            if (result.Accepted)
+                BeginSettling(view, objectId, result.Generation, position, rotation, velocity);
         }
 
         #endregion
@@ -143,7 +191,7 @@ namespace Jongreul.AuthorityRequest.Networking
             if (!HasStateAuthority || _arbiter == null)
                 return;
 
-            // 놓인 오브젝트: 서버 물리 자세를 흘려보내고, 충분히 느려진 상태가 이어지면 정지를 확정한다.
+            // 놓인 오브젝트: 서버 물리 자세를 흘려보내고, 멈춘 상태가 이어지면 정지를 확정한다.
             foreach (KeyValuePair<int, GrabbableView> pair in _views)
             {
                 if (!_releaseGeneration.TryGetValue(pair.Key, out int generation))
@@ -152,9 +200,10 @@ namespace Jongreul.AuthorityRequest.Networking
                 GrabbableView view = pair.Value;
                 WritePose(pair.Key, view.transform.position, view.transform.rotation);
 
-                int still = view.Speed < restSpeed ? _stillTicks[pair.Key] + 1 : 0;
+                int still = view.IsResting(restSpeed, restAngularSpeed) ? _stillTicks[pair.Key] + 1 : 0;
                 _stillTicks[pair.Key] = still;
-                if (still < restTicks)
+                // 속도 0으로 놓은 직후는 물리가 아직 한 스텝도 안 돌았을 수 있다. 최소 시간을 함께 본다.
+                if (still < restTicks || Runner.SimulationTime - _releaseTime[pair.Key] < minSettleSeconds)
                     continue;
 
                 _releaseGeneration.Remove(pair.Key);
@@ -187,24 +236,31 @@ namespace Jongreul.AuthorityRequest.Networking
             if (!_views.TryGetValue(snapshot.ObjectId, out GrabbableView view))
                 return;
 
-            if (snapshot.State == GrabbableState.Held)
+            switch (snapshot.State)
             {
-                _releaseGeneration.Remove(snapshot.ObjectId);
-                view.SetServerKinematic(true);
+                case GrabbableState.Held:
+                    _releaseGeneration.Remove(snapshot.ObjectId);
+                    view.SetServerKinematic(true);
+                    break;
+                case GrabbableState.Resting:
+                    view.SetServerKinematic(true);
+                    snapshot.Pose.ApplyTo(view.transform);
+                    break;
+                case GrabbableState.Settling when snapshot.ObjectId != _releasingByRpc:
+                    // 정책·퇴장·그랩 금지로 서버가 직접 놓은 경우. 그 자리에서 떨어뜨린다.
+                    BeginSettling(view, snapshot.ObjectId, snapshot.Generation, snapshot.Pose.Position(),
+                        snapshot.Pose.Rotation(), Vector3.zero);
+                    break;
             }
-            else if (snapshot.State == GrabbableState.Resting)
-            {
-                view.SetServerKinematic(true);
-                snapshot.Pose.ApplyTo(view.transform);
-            }
-            else if (!_releaseGeneration.ContainsKey(snapshot.ObjectId))
-            {
-                // 정책·퇴장으로 서버가 직접 놓은 경우. 그 자리에서 떨어뜨린다.
-                ReleaseResult pending = new ReleaseResult(ReleaseStatus.Accepted, snapshot.ObjectId, snapshot.Generation);
-                _releaseGeneration[snapshot.ObjectId] = pending.Generation;
-                _stillTicks[snapshot.ObjectId] = 0;
-                view.BeginServerPhysics(snapshot.Pose.Position(), snapshot.Pose.Rotation(), Vector3.zero);
-            }
+        }
+
+        void BeginSettling(GrabbableView view, int objectId, int generation, Vector3 position, Quaternion rotation,
+            Vector3 velocity)
+        {
+            _releaseGeneration[objectId] = generation;
+            _stillTicks[objectId] = 0;
+            _releaseTime[objectId] = Runner.SimulationTime;
+            view.BeginServerPhysics(position, rotation, velocity);
         }
 
         void WritePose(int objectId, Vector3 position, Quaternion rotation)

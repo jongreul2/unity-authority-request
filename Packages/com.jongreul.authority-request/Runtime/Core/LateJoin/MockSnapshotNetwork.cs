@@ -37,6 +37,9 @@ namespace Jongreul.AuthorityRequest.LateJoin
         public double LatencySeconds { get; set; } = 0.1;
         public double LatencyJitterSeconds { get; set; }
 
+        /// <summary>새로 들어오는 클라이언트의 빈칸 유예(초). 0이면 빈칸을 보는 즉시 재요청.</summary>
+        public double GapGraceSeconds { get; set; } = SnapshotRequester<T>.DefaultGapGraceSeconds;
+
         public int DeltasSent { get; private set; }
         public int SnapshotsSent { get; private set; }
         public int SnapshotEntriesSent { get; private set; }
@@ -49,7 +52,8 @@ namespace Jongreul.AuthorityRequest.LateJoin
         /// </summary>
         public SnapshotRequester<T> Join(int clientId)
         {
-            var client = new SnapshotRequester<T>(clientId, _provider.SlotCount, _provider.DefaultValue, _comparer);
+            var client = new SnapshotRequester<T>(clientId, _provider.SlotCount, _provider.DefaultValue, _comparer,
+                _clock, GapGraceSeconds);
             client.RequestReady += request => Send(() => ServeSnapshot(request));
             _clients.Add(clientId, client);
             return client;
@@ -57,11 +61,14 @@ namespace Jongreul.AuthorityRequest.LateJoin
 
         public void Leave(int clientId) => _clients.Remove(clientId);
 
-        /// <summary>도착 시각이 된 메시지를 도착 순서대로 배달한다.</summary>
+        /// <summary>도착 시각이 된 메시지를 도착 순서대로 배달하고, 클라이언트의 유예·타임아웃을 판정한다.</summary>
         public void Tick()
         {
             while (TryTakeEarliestDue(out Action deliver))
                 deliver();
+
+            foreach (SnapshotRequester<T> client in _clients.Values)
+                client.Tick();
         }
 
         void ServeSnapshot(SnapshotRequest request)

@@ -205,6 +205,81 @@ namespace Jongreul.AuthorityRequest.Tests.LateJoin
             Assert.That(changed, Is.EqualTo(new List<int> { 1, 5 }));
         }
 
+        SnapshotRequester<int> CreateTimedClient(ManualClock clock, List<SnapshotRequest> requests)
+        {
+            var client = new SnapshotRequester<int>(clientId: 2, Slots, clock: clock);
+            client.RequestReady += requests.Add;
+            client.RequestSnapshot();
+            client.ApplySnapshot(_provider.CreateSnapshot(requests[0]));
+            return client;
+        }
+
+        [Test]
+        public void WithClock_ReorderedDelta_IsHealedWithoutReRequest()
+        {
+            var clock = new ManualClock();
+            var requests = new List<SnapshotRequest>();
+            SnapshotRequester<int> client = CreateTimedClient(clock, requests);
+            _provider.Set(0, 1);
+            _provider.Set(1, 2);
+
+            client.ApplyDelta(_deltas[1]); // v2가 먼저
+            Assert.That(client.HasPendingGap, Is.True);
+            clock.Advance(0.1);
+            client.Tick();
+            client.ApplyDelta(_deltas[0]); // v1이 늦게
+
+            Assert.That(client.HasPendingGap, Is.False);
+            Assert.That(requests.Count, Is.EqualTo(1));
+            Assert.That(client.DeltasOutOfOrder, Is.EqualTo(1));
+            Assert.That(client.Version, Is.EqualTo(2));
+            Assert.That(client.Get(1), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void WithClock_LostDelta_ReRequestsAfterGrace()
+        {
+            var clock = new ManualClock();
+            var requests = new List<SnapshotRequest>();
+            SnapshotRequester<int> client = CreateTimedClient(clock, requests);
+            _provider.Set(0, 1); // v1 — 유실
+            _provider.Set(1, 2); // v2
+            client.ApplyDelta(_deltas[1]);
+
+            clock.Advance(SnapshotRequester<int>.DefaultGapGraceSeconds - 0.01);
+            client.Tick();
+            Assert.That(requests.Count, Is.EqualTo(1));
+
+            clock.Advance(0.01);
+            client.Tick();
+            Assert.That(requests.Count, Is.EqualTo(2));
+            Assert.That(client.GapsDetected, Is.EqualTo(1));
+
+            client.ApplySnapshot(_provider.CreateSnapshot(requests[1]));
+            Assert.That(client.Get(0), Is.EqualTo(1));
+            Assert.That(client.Version, Is.EqualTo(_provider.Version));
+        }
+
+        [Test]
+        public void WithClock_LostSnapshotResponse_RetriesAfterTimeout()
+        {
+            var clock = new ManualClock();
+            var client = new SnapshotRequester<int>(clientId: 3, Slots, clock: clock);
+            var requests = new List<SnapshotRequest>();
+            client.RequestReady += requests.Add;
+            _provider.Set(5, 50);
+
+            client.RequestSnapshot(); // 응답이 유실된다
+            clock.Advance(SnapshotRequester<int>.DefaultRequestTimeoutSeconds);
+            client.Tick();
+
+            Assert.That(requests.Count, Is.EqualTo(2));
+            Assert.That(client.RequestTimeouts, Is.EqualTo(1));
+            Assert.That(client.ApplySnapshot(_provider.CreateSnapshot(requests[0])), Is.False); // 늦게 온 옛 응답
+            Assert.That(client.ApplySnapshot(_provider.CreateSnapshot(requests[1])), Is.True);
+            Assert.That(client.Get(5), Is.EqualTo(50));
+        }
+
         [Test]
         public void SnapshotOlderThanAppliedState_IsIgnored()
         {

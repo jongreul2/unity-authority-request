@@ -1,7 +1,7 @@
 # unity-authority-request
 
 ![Unity](https://img.shields.io/badge/Unity-6000.3%20LTS-black?logo=unity)
-![Tests](https://img.shields.io/badge/EditMode-110%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/EditMode-119%20passed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 **서버 응답을 권위로 두는 클라이언트 패턴 4종** — 응답 게이트 · 늦은 입장 스냅샷 · 멱등 구매 · 그랩 소유권 판정.
@@ -35,7 +35,7 @@
 | | `IGateServer` / `MockGateServer` | 전송 계층 인터페이스 / 지연·지터·실패·중복 응답을 흉내 내는 가짜 서버(서버 쪽 쿨타임 판정 포함) |
 | | `IClock` / `ManualClock` / `UnityClock` | 주입 가능한 시계. 테스트는 시간을 손으로 돌린다 |
 | **B. 늦은 입장** | `SnapshotProvider<T>` | 서버 상태 보관. 변경마다 버전 +1, 요청이 오면 **기본값과 다른 슬롯만** 스냅샷으로 응답 |
-| | `SnapshotRequester<T>` | 받는 쪽이 준비되면 스스로 요청. 요청 중 도착한 변경은 버퍼 후 버전 순서로 이어 붙임. 버전 빈칸이면 재요청(멱등) |
+| | `SnapshotRequester<T>` | 받는 쪽이 준비되면 스스로 요청. 요청 중 도착한 변경은 버퍼 후 버전 순서로 이어 붙임. 버전 빈칸은 유예(0.3 s) 동안 기다렸다 메우고, 안 메워지면(유실) 재요청. 재요청은 멱등, 요청 타임아웃 시 재시도 |
 | | `MockSnapshotNetwork<T>` | 메시지별 지연·지터가 있는 서버 1 : 클라 N 가짜 네트워크 |
 | **C. 멱등 구매** | `IdempotencyCache<TKey,TResult>` | (플레이어, 요청 ID) → 결과를 TTL 동안 보관. 먼저 저장된 결과 우선, 용량 초과 시 오래된 것부터 |
 | | `PurchaseLedger` | 서버 가격표로 판정·차감. 같은 요청 ID는 이전 결과 재응답, 다른 아이템으로 재사용하면 충돌 |
@@ -104,26 +104,28 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 
 | 구분 | 수 | 내용 |
 |---|---|---|
-| EditMode (Core) | **110** | 게이트 35 · 늦은 입장 20 · 멱등 구매 26 · 그랩 29 — 전부 UnityEngine 무의존 어셈블리 |
+| EditMode (Core) | **119** | 게이트 38 · 늦은 입장 24 · 멱등 구매 28 · 그랩 29 — 전부 UnityEngine 무의존 어셈블리 |
 | PlayMode (데모 흐름) | **2** | 실제 프레임 루프에서 연타 10회 → 요청 1회 / 게이트 우회 시 요청 10회·실행 1회 |
-| PlayMode (Fusion, SDK 설치 시) | **2** | Fusion 2.0.6 · Unity 6000.0.58f2 Single 모드에서 통과. 구매: 같은 요청 ID 2회 → 차감 1회·재응답 / 그랩: 잡기 → 한도 초과 거부 → 놓기 → 서버 물리 정지 → 표시 자세 = 서버 정지 자세. Unity 6000.3에서는 SDK 2.0.6 에디터 코드 비호환으로 실행 불가 — [상세](docs/analysis/verification.md#fusion-런타임) |
+| PlayMode (Fusion, SDK 설치 시) | **2** | Fusion 2.0.6 · Unity 6000.0.58f2 Single 모드에서 통과. 구매: 같은 요청 ID 2회 → 차감 1회·재응답 / 그랩: 잡기 → 한도 초과 거부 → 놓기 → 서버 물리 정지 → 표시 자세 = 서버 정지 자세. Unity 6000.3에서는 SDK 2.0.6 에디터 코드 비호환으로 실행 불가 — [상세](docs/analysis/verification.md#fusion-런타임) · [결과 XML](docs/analysis/fusion-single-mode-unity6000.0.xml) |
 
 위 수치는 로컬 배치 실행 결과다. GitHub Actions 워크플로(`.github/workflows/tests.yml`, GameCI)는 들어 있지만 Unity 라이선스 시크릿을 넣기 전까지 수동 실행으로만 두었다.
 
 대표 불변식 테스트(측정 조건과 결과: [docs/analysis/verification.md](docs/analysis/verification.md)):
 
-- **게이트 혼돈 실행** — 지연 250 ± 250 ms, 실패 20 %, 중복 응답 30 %, 응답 타임아웃 350 ms에서 20 ms 간격으로 3000회 입력. 보낸 요청 수 = 서버가 받은 수, 적용된 응답 시퀀스는 엄격히 증가, 서버 실행 간격 ≥ 쿨타임. 중복·역전·타임아웃이 실제로 발생했는지도 함께 단언한다.
-- **늦은 입장 수렴** — 16슬롯에 400회 무작위 변경이 흐르는 동안 7명이 제각기 입장, 지연 150 ± 120 ms(순서 역전 발생). 변경이 멈춘 뒤 전원 `Synced`, 버전·슬롯 값이 서버와 일치.
+- **게이트만으로 이중 실행 방지** — 지연 250 ± 250 ms, 실패 20 %, 중복 응답 30 %에서 20 ms 간격으로 3000회 입력. 서버 쿨타임에 걸려 거절된 요청이 **0건**. 목 서버의 쿨타임 판정이 아니라 게이트가 서버보다 먼저 입력을 여는 일이 없다는 증명이다.
+- **게이트 혼돈 실행** — 같은 조건에 응답 타임아웃 350 ms를 더해 중복·지난 응답·타임아웃이 실제로 섞이게 한 뒤, 적용된 응답 시퀀스가 엄격히 증가하는지 본다.
+- **늦은 입장 수렴** — 16슬롯에 400회 무작위 변경이 흐르는 동안 7명이 제각기 입장, 지연 150 ± 120 ms. 순서 역전이 실제로 일어났음을 단언하고, 변경이 멈춘 뒤 전원 `Synced`, 버전·슬롯 값이 서버와 일치, 스냅샷은 클라이언트당 2회 이하.
+- **빈칸 유예 효과(측정)** — 60초 동안 20 ms마다 변경, 지연 150 ± 120 ms. 빈칸을 보자마자 재요청하면 동기화 유지율 14.1 %·스냅샷 162회, 0.3초 유예를 두면 **99.6 %·스냅샷 1회**.
 - **정지 자세 일치** — 세 피어가 서로 다른 보간 상태에 있어도 서버 정지 방송 뒤 자세가 비트 단위로 같다.
 
 ## 한계와 다음 단계
 
 - **쿨타임 시작점** — 클라는 응답을 받은 순간부터 센다. 서버보다 편도 지연만큼 늦게 끝나므로 서버보다 먼저 입력을 여는 일은 없지만, 체감 쿨타임이 그만큼 길다. 서버 시각 동기화로 줄일 수 있다.
 - **타임아웃 뒤 도착한 성공** — 게이트는 버린다. 서버는 실행했으므로 다음 요청은 서버 쿨타임이 거절한다(안전). Fail 응답에 남은 쿨타임을 실어 클라 표시를 맞추는 것이 다음 단계.
-- **스냅샷 재요청** — 순서 역전도 빈칸으로 보고 스냅샷을 다시 받는다. 단순하고 수렴이 보장되지만, 역전이 잦은 채널에선 스냅샷이 늘어난다. 순서 보장 채널(Fusion reliable RPC)에서는 드물다.
+- **빈칸 유예의 대가** — 변경이 실제로 유실되면 유예(0.3 s)만큼 늦게 복구된다. 유예는 채널 지터보다 길게 잡아야 하며, 순서 보장 채널(Fusion reliable RPC)이면 0으로 둬도 된다.
 - **멱등 캐시는 메모리** — 서버 재시작·용량 초과 시 보호가 약해진다. 비소모성 아이템은 보유 검사가 한 번 더 막지만, 소모성 재화는 DB 유니크 키(요청 ID)가 필요하다.
-- **PlayerRef 재사용** — 샘플은 세션 슬롯 번호를 키로 쓰고 퇴장 시 상태를 지운다. 실제 서비스는 계정 ID를 키로 둔다.
-- **그랩은 서버 확정** — 클라 예측이 없어 잡는 반응이 왕복 지연만큼 늦다. 예측 후 거절 시 롤백이 다음 단계.
+- **PlayerRef 재사용** — 샘플은 세션 슬롯 번호를 키로 쓰고, 퇴장 시 잔고·보유 목록·재응답 캐시를 모두 지운다(같은 번호로 들어온 사람이 이전 결과를 받지 않게). 실제 서비스는 계정 ID를 키로 둔다.
+- **그랩은 서버 확정** — 클라 예측이 없어 잡는 반응이 왕복 지연만큼 늦다. 예측 후 거절 시 롤백이 다음 단계. 놓을 때 클라가 보낸 위치는 마지막 손 자세에서 0.75 m 안일 때만, 속도는 15 m/s 이하로 잘라서 받는다. 정지는 선속도·각속도·물리 Sleeping과 최소 경과 시간으로 판정한다.
 - **Fusion 검증 범위** — Single 모드(피어 1개, Unity 6000.0.58f2)까지 실제 `NetworkRunner`로 검증했다. Host가 스스로 보낸 요청은 `HostMode = SourceIsHostPlayer`로 처리했다(기본값이면 Host 요청의 `info.Source`가 None이 되어 Host 플레이어의 구매가 버려진다). Host + Client 2피어와 Dedicated Server는 App ID가 필요해 아직 돌리지 않았다.
 - **2피어 데모** — Photon App ID가 필요해 2피어 GIF는 아직 없다.
 - **샘플 위치** — 데모는 UPM `Samples~`가 아니라 이 저장소(호스트 프로젝트)의 `Assets/Demos/`에 있다. 패키지만 가져가는 경우 데모는 따라가지 않는다.
@@ -138,6 +140,6 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 
 - Four client patterns that keep the **server response authoritative**: response gate, late-join snapshot, idempotent purchase, grab ownership.
 - Rebuilt from scratch as a generic Unity package, based on problems solved while shipping a live multiplayer VR game (no company code).
-- All decision logic lives in an engine-free C# assembly with 110 EditMode tests, including chaos runs with latency, jitter, duplicates and reordering.
+- All decision logic lives in an engine-free C# assembly with 119 EditMode tests, including chaos runs with latency, jitter, duplicates and reordering.
 - Photon Fusion 2 adapters (server-authoritative RPCs + `[Networked]` replication) compile only when the SDK is present, so CI runs without it.
 - Open `Assets/Demos/Gate/GateDemo.unity` and mash a button: ten taps, one request, one execution.

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Jongreul.AuthorityRequest.Gate
 {
@@ -12,6 +13,11 @@ namespace Jongreul.AuthorityRequest.Gate
     {
         public const double DefaultPendingTimeoutSeconds = 5.0;
 
+        /// <summary>중복 판별을 위해 기억하는 최근 해결 시퀀스 수.</summary>
+        const int ResolvedHistory = 64;
+
+        readonly HashSet<long> _resolved = new HashSet<long>();
+        readonly Queue<long> _resolvedOrder = new Queue<long>();
         readonly IGateServer _server;
         readonly IClock _clock;
         readonly double _pendingTimeoutSeconds;
@@ -113,6 +119,9 @@ namespace Jongreul.AuthorityRequest.Gate
             if (_disposed || response.ActionId != ActionId)
                 return;
 
+            // 시간 경과를 먼저 반영한다. 타임아웃 시각이 지난 뒤 도착한 응답은 Tick 호출 순서와 상관없이 지난 응답이다.
+            Tick();
+
             if (State != GateState.Pending || response.Sequence != _pendingSequence)
             {
                 Ignore(response);
@@ -121,6 +130,7 @@ namespace Jongreul.AuthorityRequest.Gate
 
             _lastResolvedSequence = response.Sequence;
             _pendingSequence = 0;
+            RememberResolved(response.Sequence);
 
             if (!response.Success)
             {
@@ -153,7 +163,7 @@ namespace Jongreul.AuthorityRequest.Gate
                 reason = GateIgnoreReason.Unknown;
                 Stats.UnknownIgnored++;
             }
-            else if (response.Sequence == _lastResolvedSequence)
+            else if (_resolved.Contains(response.Sequence))
             {
                 reason = GateIgnoreReason.Duplicate;
                 Stats.DuplicatesIgnored++;
@@ -165,6 +175,16 @@ namespace Jongreul.AuthorityRequest.Gate
             }
 
             ResponseIgnored?.Invoke(response, reason);
+        }
+
+        void RememberResolved(long sequence)
+        {
+            if (!_resolved.Add(sequence))
+                return;
+
+            _resolvedOrder.Enqueue(sequence);
+            if (_resolvedOrder.Count > ResolvedHistory)
+                _resolved.Remove(_resolvedOrder.Dequeue());
         }
 
         static double SanitizeCooldown(double seconds) =>

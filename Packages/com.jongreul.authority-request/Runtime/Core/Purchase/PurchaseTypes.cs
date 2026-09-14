@@ -11,6 +11,8 @@ namespace Jongreul.AuthorityRequest.Purchase
         InsufficientFunds,
         /// <summary>같은 요청 ID로 다른 아이템을 요청했다(클라이언트 버그나 조작).</summary>
         RequestIdConflict,
+        /// <summary>서버가 지금 처리할 수 없다(복제 용량 부족 등). 차감하지 않았고 결과를 보관하지 않으므로 다시 시도할 수 있다.</summary>
+        Unavailable,
     }
 
     /// <summary>요청 ID는 플레이어마다 따로 센다. 그래서 키는 (플레이어, 요청 ID) 쌍이다.</summary>

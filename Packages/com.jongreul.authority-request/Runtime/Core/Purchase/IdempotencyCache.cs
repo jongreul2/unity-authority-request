@@ -98,6 +98,30 @@ namespace Jongreul.AuthorityRequest.Purchase
             return removed;
         }
 
+        /// <summary>조건에 맞는 키를 모두 지우고 지운 수를 돌려준다(예: 퇴장한 플레이어의 요청 전부).</summary>
+        public int RemoveWhere(Func<TKey, bool> match)
+        {
+            if (match == null)
+                throw new ArgumentNullException(nameof(match));
+
+            int removed = 0;
+            LinkedListNode<Entry> node = _byAge.First;
+            while (node != null)
+            {
+                LinkedListNode<Entry> next = node.Next;
+                if (match(node.Value.Key))
+                {
+                    _index.Remove(node.Value.Key);
+                    _byAge.Remove(node);
+                    removed++;
+                }
+
+                node = next;
+            }
+
+            return removed;
+        }
+
         public void Clear()
         {
             _index.Clear();

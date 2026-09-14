@@ -21,6 +21,7 @@ namespace Jongreul.AuthorityRequest.Networking
 
         public int Id => id;
         public GrabbableReplica Replica => _replica;
+        public bool IsBound => _authority != null;
         public float Speed => _body != null && !_body.isKinematic ? _body.linearVelocity.magnitude : 0f;
         public bool IsLocallyHeld => _replica != null && _replica.IsLocallyHeld;
 
@@ -40,14 +41,37 @@ namespace Jongreul.AuthorityRequest.Networking
             _body.isKinematic = true;
         }
 
+        internal void Unbind()
+        {
+            _authority = null;
+            _replica = null;
+        }
+
+        /// <summary>
+        /// 멈췄다고 볼 수 있는가. 물리 엔진이 재웠거나, 선속도·각속도가 모두 기준보다 작을 때.
+        /// (선속도만 보면 천천히 넘어지는 물체를 모서리로 선 채 멈췄다고 판정할 수 있다.)
+        /// </summary>
+        public bool IsResting(float maxSpeed, float maxAngularSpeed)
+        {
+            if (_body.isKinematic || _body.IsSleeping())
+                return true;
+
+            return _body.linearVelocity.sqrMagnitude < maxSpeed * maxSpeed &&
+                   _body.angularVelocity.sqrMagnitude < maxAngularSpeed * maxAngularSpeed;
+        }
+
         #region 로컬 입력(데모 입력·XR 인터랙터가 호출)
 
-        public void RequestGrab(Hand hand) => _authority.RPC_RequestGrab(id, (byte)hand);
+        public void RequestGrab(Hand hand)
+        {
+            if (_authority != null)
+                _authority.RPC_RequestGrab(id, (byte)hand);
+        }
 
         /// <summary>들고 있는 동안 매 프레임 손 자세를 넘긴다. 서버로는 일정 간격으로만 보낸다.</summary>
         public void SetHandPose(Vector3 position, Quaternion rotation)
         {
-            if (!IsLocallyHeld)
+            if (_authority == null || !IsLocallyHeld)
                 return;
 
             _replica.SetLocalHandPose(PoseConversions.ToPoseData(position, rotation));
@@ -59,8 +83,11 @@ namespace Jongreul.AuthorityRequest.Networking
             _authority.RPC_HeldPose(id, position, rotation);
         }
 
-        public void Release(Vector3 velocity) =>
-            _authority.RPC_Release(id, transform.position, transform.rotation, velocity);
+        public void Release(Vector3 velocity)
+        {
+            if (_authority != null)
+                _authority.RPC_Release(id, transform.position, transform.rotation, velocity);
+        }
 
         #endregion
 
@@ -87,6 +114,9 @@ namespace Jongreul.AuthorityRequest.Networking
 
         internal void ApplyNetState(GrabbableSnapshot snapshot, float smoothing)
         {
+            if (_replica == null)
+                return;
+
             if (!_replica.Apply(snapshot))
                 _replica.ApplyStreamedPose(snapshot.Pose);
 

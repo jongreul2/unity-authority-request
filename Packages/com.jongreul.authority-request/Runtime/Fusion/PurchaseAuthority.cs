@@ -100,6 +100,13 @@ namespace Jongreul.AuthorityRequest.Networking
             if (!buyer.IsRealPlayer)
                 return;
 
+            // 복제 목록이 가득 차면 원장만 차감되고 [Networked]에는 못 쓰는 상태가 된다. 판정 전에 거절한다.
+            if (Owned.Count >= MaxOwnedItems)
+            {
+                RPC_PurchaseResult(buyer, (int)PurchaseStatus.Unavailable, requestId, itemId, 0, GetBalance(buyer), false);
+                return;
+            }
+
             PurchaseResult result = _ledger.Purchase(buyer.RawEncoded, itemId.ToString(), requestId);
             if (result.Succeeded && !result.Replayed)
             {
@@ -138,6 +145,12 @@ namespace Jongreul.AuthorityRequest.Networking
         {
             if (!player.IsRealPlayer || Balances.ContainsKey(player))
                 return;
+
+            if (Balances.Count >= MaxPlayers)
+            {
+                Debug.LogError($"[{nameof(PurchaseAuthority)}] 잔고 슬롯({MaxPlayers})이 가득 차 {player}를 등록하지 못했다.", this);
+                return;
+            }
 
             _ledger.SetBalance(player.RawEncoded, startingBalance);
             Balances.Set(player, startingBalance);

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.7283368">
+  <test-suite type="TestSuite" id="1024" name="AuthorityRequestLab" fullname="AuthorityRequestLab" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.728337" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1005" name="Jongreul.AuthorityRequest.Demos.Fusion.Tests.dll" fullname="Library/ScriptAssemblies/Jongreul.AuthorityRequest.Demos.Fusion.Tests.dll" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.720154" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="21048" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1006" name="Jongreul" fullname="Jongreul" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.719106" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1007" name="AuthorityRequest" fullname="Jongreul.AuthorityRequest" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.718004" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1008" name="Demos" fullname="Jongreul.AuthorityRequest.Demos" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.717056" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1009" name="Fusion" fullname="Jongreul.AuthorityRequest.Demos.Fusion" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.716168" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1010" name="Tests" fullname="Jongreul.AuthorityRequest.Demos.Fusion.Tests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.715426" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1001" name="GrabSingleModeTests" fullname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.GrabSingleModeTests" classname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.GrabSingleModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.478499" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1002" name="GrabRejectSecond_ReleaseSettlesAtServerRestPose" fullname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.GrabSingleModeTests.GrabRejectSecond_ReleaseSettlesAtServerRestPose" methodname="GrabRejectSecond_ReleaseSettlesAtServerRestPose" classname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.GrabSingleModeTests" runstate="Runnable" seed="1773532453" result="Passed" start-time="2026-09-14 11:59:17Z" end-time="2026-09-14 11:59:19Z" duration="1.465708" asserts="0">
+                    <properties>
+                      <property name="_JOINTYPE" value="UnityCombinatorial" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[<color=#73ACE5>[Fusion]</color> adding player [Player:1]
+]]></output>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1003" name="PurchaseSingleModeTests" fullname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.PurchaseSingleModeTests" classname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.PurchaseSingleModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-14 11:59:19Z" end-time="2026-09-14 11:59:19Z" duration="0.235405" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1004" name="SameRequestIdTwice_ChargesOnce_AndReplaysResult" fullname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.PurchaseSingleModeTests.SameRequestIdTwice_ChargesOnce_AndReplaysResult" methodname="SameRequestIdTwice_ChargesOnce_AndReplaysResult" classname="Jongreul.AuthorityRequest.Demos.Fusion.Tests.PurchaseSingleModeTests" runstate="Runnable" seed="1340071582" result="Passed" start-time="2026-09-14 11:59:19Z" end-time="2026-09-14 11:59:19Z" duration="0.233371" asserts="0">
+                    <properties>
+                      <property name="_JOINTYPE" value="UnityCombinatorial" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[<color=#73ACE5>[Fusion]</color> adding player [Player:1]
+Saving results to: TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

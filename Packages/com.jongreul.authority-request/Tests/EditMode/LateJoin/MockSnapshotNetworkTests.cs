@@ -39,13 +39,61 @@ namespace Jongreul.AuthorityRequest.Tests.LateJoin
             }
 
             Assert.That(network.InFlight, Is.EqualTo(0));
+            int outOfOrder = 0;
             foreach (SnapshotRequester<int> client in network.Clients)
             {
+                outOfOrder += client.DeltasOutOfOrder;
                 Assert.That(client.State, Is.EqualTo(SyncState.Synced), $"client {client.ClientId}");
                 Assert.That(client.Version, Is.EqualTo(provider.Version));
                 for (int slot = 0; slot < 16; slot++)
                     Assert.That(client.Get(slot), Is.EqualTo(provider.Get(slot)), $"client {client.ClientId} slot {slot}");
             }
+
+            // 순서 역전이 실제로 일어났어야 의미 있는 테스트이고, 역전은 유예로 메워져 스냅샷이 늘지 않아야 한다.
+            Assert.That(outOfOrder, Is.GreaterThan(0));
+            Assert.That(network.SnapshotsSent, Is.LessThanOrEqualTo(network.Clients.Count * 2));
+        }
+
+        [Test]
+        public void GapGrace_KeepsClientSyncedWhileChangesKeepFlowing()
+        {
+            (double ratio, int snapshots) immediate = RunContinuous(gapGraceSeconds: 0);
+            (double ratio, int snapshots) graced = RunContinuous(gapGraceSeconds: SnapshotRequester<int>.DefaultGapGraceSeconds);
+            TestContext.WriteLine(
+                $"[measure] 60s, change every 20ms, latency 150±120ms | immediate re-request: synced {immediate.ratio:P1}, snapshots {immediate.snapshots} | " +
+                $"grace {SnapshotRequester<int>.DefaultGapGraceSeconds}s: synced {graced.ratio:P1}, snapshots {graced.snapshots}");
+
+            Assert.That(graced.ratio, Is.GreaterThan(0.95));
+            Assert.That(graced.snapshots, Is.LessThanOrEqualTo(3));
+            Assert.That(immediate.snapshots, Is.GreaterThan(graced.snapshots * 10));
+        }
+
+        static (double ratio, int snapshots) RunContinuous(double gapGraceSeconds)
+        {
+            var clock = new ManualClock();
+            var provider = new SnapshotProvider<int>(16);
+            var network = new MockSnapshotNetwork<int>(provider, clock, seed: 11)
+            {
+                LatencySeconds = 0.15,
+                LatencyJitterSeconds = 0.12,
+                GapGraceSeconds = gapGraceSeconds,
+            };
+            var random = new Random(5);
+            SnapshotRequester<int> client = network.Join(1);
+            client.RequestSnapshot();
+
+            const int steps = 3000; // 20 ms × 3000 = 60 s
+            int synced = 0;
+            for (int i = 0; i < steps; i++)
+            {
+                provider.Set(random.Next(16), random.Next(1, 5));
+                clock.Advance(0.02);
+                network.Tick();
+                if (client.State == SyncState.Synced)
+                    synced++;
+            }
+
+            return ((double)synced / steps, network.SnapshotsSent);
         }
 
         [Test]

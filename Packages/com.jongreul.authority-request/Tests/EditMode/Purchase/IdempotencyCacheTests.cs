@@ -132,6 +132,21 @@ namespace Jongreul.AuthorityRequest.Tests.Purchase
         }
 
         [Test]
+        public void RemoveWhere_RemovesOnlyMatchingKeys()
+        {
+            var cache = new IdempotencyCache<PurchaseKey, string>(_clock, 10, 10);
+            cache.TryAdd(new PurchaseKey(1, 1), "a");
+            cache.TryAdd(new PurchaseKey(2, 1), "b");
+            cache.TryAdd(new PurchaseKey(1, 2), "c");
+
+            int removed = cache.RemoveWhere(key => key.PlayerId == 1);
+
+            Assert.That(removed, Is.EqualTo(2));
+            Assert.That(cache.TryGet(new PurchaseKey(2, 1), out _), Is.True);
+            Assert.That(cache.TryAdd(new PurchaseKey(1, 1), "again"), Is.True);
+        }
+
+        [Test]
         public void Clear_RemovesEverything()
         {
             _cache.TryAdd(1, "a");

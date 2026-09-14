@@ -136,6 +136,22 @@ namespace Jongreul.AuthorityRequest.Tests.Purchase
         }
 
         [Test]
+        public void ForgetPlayer_NextPersonWithSameIdDoesNotGetPreviousReplay()
+        {
+            _ledger.Purchase(Player, "hat", 1);
+            _ledger.ForgetPlayer(Player);
+
+            // 같은 슬롯 번호로 새 사람이 들어와 요청 ID 1부터 시작
+            _ledger.SetBalance(Player, 1000);
+            PurchaseResult result = _ledger.Purchase(Player, "hat", 1);
+
+            Assert.That(result.Replayed, Is.False);
+            Assert.That(result.Status, Is.EqualTo(PurchaseStatus.Success));
+            Assert.That(_ledger.GetBalance(Player), Is.EqualTo(700));
+            Assert.That(_ledger.Owns(Player, "hat"), Is.True);
+        }
+
+        [Test]
         public void ManyRetriesOfSameRequest_ChargeExactlyOnce()
         {
             for (int i = 0; i < 50; i++)

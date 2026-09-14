@@ -316,6 +316,36 @@ namespace Jongreul.AuthorityRequest.Tests.Gate
         }
 
         [Test]
+        public void ResponseArrivingAfterTimeout_BeforeTick_IsTreatedAsLate()
+        {
+            _gate.TryActivate();
+            long sequence = _server.Last.Sequence;
+            _clock.Advance(ActionGate.DefaultPendingTimeoutSeconds + 0.1);
+
+            // Tick보다 응답이 먼저 도착해도 타임아웃 시각이 지났으면 지난 응답이다.
+            _server.Respond(GateResponse.Succeeded(Action, sequence, 1.0));
+
+            Assert.That(_gate.State, Is.EqualTo(GateState.Ready));
+            Assert.That(_gate.Stats.Timeouts, Is.EqualTo(1));
+            Assert.That(_gate.Stats.StaleIgnored, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DuplicateOfOlderResolvedResponse_IsCountedAsDuplicate()
+        {
+            _gate.TryActivate();
+            GateResponse first = GateResponse.Failed(Action, _server.Last.Sequence, "no");
+            _server.Respond(first);
+            _gate.TryActivate();
+            FailLast();
+
+            _server.Respond(first);
+
+            Assert.That(_gate.Stats.DuplicatesIgnored, Is.EqualTo(1));
+            Assert.That(_gate.Stats.StaleIgnored, Is.EqualTo(0));
+        }
+
+        [Test]
         public void Dispose_UnsubscribesFromServer()
         {
             Assert.That(_server.SubscriberCount, Is.EqualTo(1));

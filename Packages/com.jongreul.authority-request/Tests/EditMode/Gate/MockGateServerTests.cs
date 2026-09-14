@@ -155,6 +155,41 @@ namespace Jongreul.AuthorityRequest.Tests.Gate
             Assert.That(gate.Stats.Timeouts, Is.GreaterThan(0));
         }
 
+        [Test]
+        public void ChaosWithoutTimeouts_GateAloneKeepsRequestsOutOfServerCooldown()
+        {
+            // 타임아웃이 없으면 게이트는 응답 전에 다음 요청을 보내지 않고, 쿨타임도 응답 도착 시점부터 센다.
+            // 그러니 서버 쿨타임에 걸리는 요청이 하나도 없어야 한다. 서버 쪽 판정이 아니라 게이트가 이중 실행을 막는다는 증명.
+            var clock = new ManualClock();
+            var server = new MockGateServer(clock, seed: 77)
+            {
+                LatencySeconds = 0.25,
+                LatencyJitterSeconds = 0.25,
+                FailureRate = 0.2,
+                DuplicateRate = 0.3,
+                DefaultCooldownSeconds = 0.4,
+            };
+            var gate = new ActionGate(Action, server, clock, pendingTimeoutSeconds: 0);
+            int cooldownRejections = 0;
+            server.RequestJudged += (request, response) =>
+            {
+                if (response.FailReason == "server-cooldown")
+                    cooldownRejections++;
+            };
+
+            for (int i = 0; i < 3000; i++)
+            {
+                gate.TryActivate();
+                clock.Advance(0.02);
+                server.Tick();
+                gate.Tick();
+            }
+
+            Assert.That(server.ActionsExecuted, Is.GreaterThan(50));
+            Assert.That(gate.Stats.DuplicatesIgnored, Is.GreaterThan(0));
+            Assert.That(cooldownRejections, Is.EqualTo(0));
+        }
+
         static string RunChaos(int seed)
         {
             var clock = new ManualClock();
