@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.jongreul.authority-request": {
+      "version": "file:com.jongreul.authority-request",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.ugui": "2.0.0"
+      }
+    },
     "com.unity.burst": {
       "version": "1.8.28",
       "depth": 2,
@@ -65,7 +73,7 @@
     },
     "com.unity.nuget.mono-cecil": {
       "version": "1.11.6",
-      "depth": 3,
+      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
@@ -165,6 +173,12 @@
       "source": "builtin",
       "dependencies": {}
     },
+    "com.unity.modules.imageconversion": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
     "com.unity.modules.imgui": {
       "version": "1.0.0",
       "depth": 0,
@@ -184,6 +198,12 @@
       "dependencies": {}
     },
     "com.unity.modules.physics": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.physics2d": {
       "version": "1.0.0",
       "depth": 0,
       "source": "builtin",
