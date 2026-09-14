@@ -1,7 +1,7 @@
 # unity-authority-request
 
-[![Tests](https://github.com/jongreul2/unity-authority-request/actions/workflows/tests.yml/badge.svg)](https://github.com/jongreul2/unity-authority-request/actions/workflows/tests.yml)
 ![Unity](https://img.shields.io/badge/Unity-6000.3%20LTS-black?logo=unity)
+![Tests](https://img.shields.io/badge/EditMode-110%20passed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 **서버 응답을 권위로 두는 클라이언트 패턴 4종** — 응답 게이트 · 늦은 입장 스냅샷 · 멱등 구매 · 그랩 소유권 판정.
@@ -107,6 +107,8 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 | EditMode (Core) | **110** | 게이트 35 · 늦은 입장 20 · 멱등 구매 26 · 그랩 29 — 전부 UnityEngine 무의존 어셈블리 |
 | PlayMode (데모 흐름) | **2** | 실제 프레임 루프에서 연타 10회 → 요청 1회 / 게이트 우회 시 요청 10회·실행 1회 |
 | PlayMode (Fusion, SDK 설치 시) | **2** | Fusion 2.0.6 · Unity 6000.0.58f2 Single 모드에서 통과. 구매: 같은 요청 ID 2회 → 차감 1회·재응답 / 그랩: 잡기 → 한도 초과 거부 → 놓기 → 서버 물리 정지 → 표시 자세 = 서버 정지 자세. Unity 6000.3에서는 SDK 2.0.6 에디터 코드 비호환으로 실행 불가 — [상세](docs/analysis/verification.md#fusion-런타임) |
+
+위 수치는 로컬 배치 실행 결과다. GitHub Actions 워크플로(`.github/workflows/tests.yml`, GameCI)는 들어 있지만 Unity 라이선스 시크릿을 넣기 전까지 수동 실행으로만 두었다.
 
 대표 불변식 테스트(측정 조건과 결과: [docs/analysis/verification.md](docs/analysis/verification.md)):
 

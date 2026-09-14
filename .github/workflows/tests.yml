@@ -1,9 +1,8 @@
 name: Tests
 
+# Unity 라이선스 시크릿(UNITY_LICENSE·UNITY_EMAIL·UNITY_PASSWORD)을 넣기 전까지는 수동 실행만.
+# 시크릿을 넣은 뒤 push·pull_request 트리거를 되살린다.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
