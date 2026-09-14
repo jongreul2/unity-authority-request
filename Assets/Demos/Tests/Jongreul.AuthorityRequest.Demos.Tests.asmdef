@@ -1,0 +1,24 @@
+{
+    "name": "Jongreul.AuthorityRequest.Demos.Tests",
+    "rootNamespace": "Jongreul.AuthorityRequest.Demos.Tests",
+    "references": [
+        "Jongreul.AuthorityRequest.Core",
+        "Jongreul.AuthorityRequest",
+        "Jongreul.AuthorityRequest.Demos",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,19 @@
+{
+    "name": "Jongreul.AuthorityRequest.Demos",
+    "rootNamespace": "Jongreul.AuthorityRequest.Demos",
+    "references": [
+        "Jongreul.AuthorityRequest.Core",
+        "Jongreul.AuthorityRequest",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

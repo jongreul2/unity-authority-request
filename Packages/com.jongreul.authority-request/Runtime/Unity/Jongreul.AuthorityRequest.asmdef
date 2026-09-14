@@ -1,0 +1,16 @@
+{
+    "name": "Jongreul.AuthorityRequest",
+    "rootNamespace": "Jongreul.AuthorityRequest",
+    "references": [
+        "Jongreul.AuthorityRequest.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
