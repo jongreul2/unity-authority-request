@@ -52,6 +52,16 @@ namespace Jongreul.AuthorityRequest.Purchase
         public IReadOnlyCollection<string> GetOwned(int playerId) =>
             _owned.TryGetValue(playerId, out HashSet<string> items) ? items : NoItems;
 
+        /// <summary>
+        /// 플레이어의 잔고·보유 목록을 지운다. 세션 슬롯 번호처럼 재사용되는 ID를 키로 쓸 때,
+        /// 다음 사람이 이전 사람의 상태를 물려받지 않게 퇴장 시 호출한다.
+        /// </summary>
+        public void ForgetPlayer(int playerId)
+        {
+            _balances.Remove(playerId);
+            _owned.Remove(playerId);
+        }
+
         public PurchaseResult Purchase(int playerId, string itemId, long requestId)
         {
             var key = new PurchaseKey(playerId, requestId);

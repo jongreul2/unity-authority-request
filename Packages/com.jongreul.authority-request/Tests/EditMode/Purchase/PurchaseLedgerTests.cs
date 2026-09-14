@@ -124,6 +124,18 @@ namespace Jongreul.AuthorityRequest.Tests.Purchase
         }
 
         [Test]
+        public void ForgetPlayer_ClearsBalanceAndOwnership()
+        {
+            _ledger.Purchase(Player, "hat", 1);
+
+            _ledger.ForgetPlayer(Player);
+
+            Assert.That(_ledger.GetBalance(Player), Is.EqualTo(0));
+            Assert.That(_ledger.Owns(Player, "hat"), Is.False);
+            Assert.That(_ledger.GetOwned(Player).Count, Is.EqualTo(0));
+        }
+
+        [Test]
         public void ManyRetriesOfSameRequest_ChargeExactlyOnce()
         {
             for (int i = 0; i < 50; i++)
