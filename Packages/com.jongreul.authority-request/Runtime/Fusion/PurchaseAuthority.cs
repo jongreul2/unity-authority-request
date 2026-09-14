@@ -86,8 +86,11 @@ namespace Jongreul.AuthorityRequest.Networking
             }
         }
 
-        /// <summary>클라이언트 → 서버. 가격은 싣지 않는다.</summary>
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        /// <summary>
+        /// 클라이언트 → 서버. 가격은 싣지 않는다.
+        /// HostMode 기본값(SourceIsServer)이면 Host가 부를 때 Source가 None이 되어 Host 플레이어의 구매가 버려진다.
+        /// </summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestPurchase(NetworkString<_32> itemId, int requestId, RpcInfo info = default)
         {
             if (!HasStateAuthority || _ledger == null)

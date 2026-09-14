@@ -88,8 +88,9 @@ namespace Jongreul.AuthorityRequest.Networking
         }
 
         #region 클라이언트 → 서버
+        // HostMode = SourceIsHostPlayer: Host가 부를 때도 info.Source가 Host 플레이어가 되게 한다(기본값은 None).
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_RequestGrab(int objectId, byte hand, RpcInfo info = default)
         {
             if (!HasStateAuthority || _arbiter == null)
@@ -99,7 +100,8 @@ namespace Jongreul.AuthorityRequest.Networking
             RPC_GrabResult(info.Source, objectId, hand, (byte)result.Status, result.AutoReleasedObjectId);
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Unreliable)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Unreliable,
+            HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_HeldPose(int objectId, Vector3 position, Quaternion rotation, RpcInfo info = default)
         {
             if (!HasStateAuthority || _arbiter == null)
@@ -109,7 +111,7 @@ namespace Jongreul.AuthorityRequest.Networking
                 WritePose(objectId, position, rotation);
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
         public void RPC_Release(int objectId, Vector3 position, Quaternion rotation, Vector3 velocity,
             RpcInfo info = default)
         {

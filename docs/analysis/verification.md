@@ -16,7 +16,7 @@
 | EditMode | 110 / 110 | `Jongreul.AuthorityRequest.Core.Tests` — UnityEngine 무의존 어셈블리만 대상 |
 | PlayMode — 데모 흐름 | 2 / 2 | `GateDemoPlayModeTests` |
 | PlayMode — 캡처 | (Explicit) | `GateDemoCapture` — README GIF 촬영 전용, 일반 실행에서 제외 |
-| PlayMode — Fusion Single | 미검증 | 아래 "Fusion 런타임" 참고 |
+| PlayMode — Fusion Single | 2 / 2 | Unity **6000.0.58f2** + Fusion 2.0.6에서 실행. 아래 "Fusion 런타임" 참고 |
 
 ### 픽스처별 EditMode 수
 
@@ -71,9 +71,27 @@
 
 ## Fusion 런타임
 
-- `Jongreul.AuthorityRequest.Fusion` 어셈블리는 Photon Fusion 2.0.6 (Stable 1034)으로 **컴파일·IL 위빙 확인**.
-- `PurchaseSingleModeTests`(Single 모드, App ID 불필요)는 Unity 6000.3에서 실행 불가:
-  Fusion 2.0.6 에디터 코드가 `UnityEditor.HierarchyProperty.CopySearchFilterFrom`를 리플렉션으로 찾는데
-  Unity 6000.3에는 그 메서드가 없어 `NetworkRunner.StartGame` → `NetworkProjectConfig.Global` 로드가 실패한다.
-  저장소 코드 문제가 아니라 SDK·에디터 버전 조합 문제다.
-- 해결: Unity 6.3을 지원하는 Fusion 2 SDK로 교체하거나 Unity 6000.0 LTS에서 실행.
+### 검증 환경
+
+- Photon Fusion 2.0.6 (Stable 1034) + **Unity 6000.0.58f2** (Photon 공식 VR 샘플과 같은 조합)
+- 같은 커밋을 별도 작업 사본으로 열고 패키지만 6000.0용으로 맞춤: URP 17.0.4, Test Framework 1.5.1, mono-cecil 1.11.5
+- `-runTests -testPlatform PlayMode -testFilter Jongreul.AuthorityRequest.Demos.Fusion.Tests`
+
+| 테스트 | 결과 | 시간 | 흐름 |
+|---|---|---|---|
+| `PurchaseSingleModeTests.SameRequestIdTwice_ChargesOnce_AndReplaysResult` | 통과 | 0.27 s | `StartGame(Single)` → 네트워크 프리팹 스폰 → 시작 잔고 1000 확인 → `hat`(300) 구매 RPC → 잔고 700·보유 확인 → 같은 요청 ID 재전송 → 결과 `Replayed`, 잔고 700 유지, 서버 실행 1회 |
+| `GrabSingleModeTests.GrabRejectSecond_ReleaseSettlesAtServerRestPose` | 통과 | 1.47 s | 큐브 2개·바닥 → 첫 큐브 잡기 승인 → 두 번째는 `LimitReached` → 손으로 옮긴 뒤 놓기 → 서버 물리가 바닥까지 떨어뜨리고 정지 판정 → 서버 `Resting`, 표시 자세와 서버 정지 자세 차이 < 1 mm → 두 번째 큐브 잡기 승인 |
+
+### 검증하면서 고친 것
+
+- **Host 자기 요청의 Source** — Fusion `RpcHostMode` 기본값은 `SourceIsServer`라 Host가 부른 RPC의 `info.Source`가 `PlayerRef.None`이다. 구매 RPC는 실제 플레이어가 아니면 버리므로 Host 플레이어의 구매가 조용히 사라진다. 클라이언트 → 서버 RPC 4개에 `HostMode = RpcHostMode.SourceIsHostPlayer`를 지정했다. Single 모드에서는 수정 전에도 Source가 로컬 플레이어였으므로(수정 전 구매 테스트도 통과) 이 수정은 Host 모드용이며, Host 실행은 App ID가 필요해 아직 확인하지 않았다.
+- **테스트 대기 기준** — 처음엔 프레임 수(600)로 기다렸는데 배치 모드는 프레임 제한이 없어 0.85 s 만에 끝나 서버 물리 정지를 기다리지 못했다. 실시간 10 s 기준으로 바꾸고 실패 시 단계 이름과 서버·레플리카 상태를 출력하게 했다.
+
+### Unity 6000.3에서 실행되지 않는 이유
+
+Fusion 2.0.6 에디터 코드가 `UnityEditor.HierarchyProperty.CopySearchFilterFrom`를 리플렉션으로 찾는데 Unity 6000.3에는 그 메서드가 없어 `NetworkRunner.StartGame` → `NetworkProjectConfig.Global` 로드가 실패한다. 저장소 코드 문제가 아니라 SDK·에디터 버전 조합 문제다. 6000.3에서 돌리려면 Unity 6.3을 지원하는 Fusion 2 SDK가 필요하다(지원 버전은 Photon 릴리스 노트에서 확인하지 못했다).
+
+### 남은 범위
+
+- Host + Client 2피어, Dedicated Server — Photon App ID 필요
+- 늦게 들어온 피어가 `[Networked]` 잔고·그랩 상태를 받는지 — 2피어 필요

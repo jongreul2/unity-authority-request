@@ -21,7 +21,7 @@ namespace Jongreul.AuthorityRequest.Demos.Fusion.Tests
     public class PurchaseSingleModeTests
     {
         const string PrefabPath = "Assets/Demos/Fusion/AuthorityRequestNetwork.prefab";
-        const int TimeoutFrames = 300;
+        const float TimeoutSeconds = 10f;
 
         NetworkRunner _runner;
 
@@ -89,9 +89,11 @@ namespace Jongreul.AuthorityRequest.Demos.Fusion.Tests
             Assert.That(authority.Ledger.Executed, Is.EqualTo(1));
         }
 
+        /// <summary>실시간 기준으로 기다린다(배치 모드는 프레임이 매우 빠르다).</summary>
         static IEnumerator WaitFor(System.Func<bool> condition)
         {
-            for (int i = 0; i < TimeoutFrames && !condition(); i++)
+            float deadline = Time.realtimeSinceStartup + TimeoutSeconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline)
                 yield return null;
             Assert.That(condition(), Is.True, "시간 초과");
         }

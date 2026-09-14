@@ -88,10 +88,10 @@ sequenceDiagram
 
 Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 
-1. [Photon Fusion 2 SDK](https://doc.photonengine.com/fusion/current/getting-started/sdk-download)를 import하면 SDK 설치기가 `FUSION2` 정의를 추가한다. 어댑터는 2.0.6으로 컴파일·위빙을 확인했다. 단 2.0.6의 에디터 코드는 Unity 6000.3에서 실행 중 예외가 나므로, 실행하려면 Unity 6.3을 지원하는 SDK를 쓰거나 Unity 6000.0 LTS에서 연다.
+1. [Photon Fusion 2 SDK](https://doc.photonengine.com/fusion/current/getting-started/sdk-download)를 import하면 SDK 설치기가 `FUSION2` 정의를 추가한다. 어댑터는 Fusion 2.0.6 + Unity 6000.0.58f2에서 PlayMode로 검증했다. 2.0.6의 에디터 코드는 Unity 6000.3에서 예외가 나므로, 6000.3에서 돌리려면 6.3을 지원하는 SDK가 필요하다.
 2. `Assets/Photon/Fusion/Resources/NetworkProjectConfig.fusion`의 `AssembliesToWeave`에 `Jongreul.AuthorityRequest.Fusion`을 추가한다(`[Networked]`·RPC 위빙 대상).
 3. **Tools › Authority Request › Rebuild Fusion Demo Assets** → 가격표·네트워크 프리팹 생성.
-4. PlayMode `PurchaseSingleModeTests` 실행 — Fusion **Single 모드**라 App ID 없이 실제 RPC·`[Networked]` 경로를 탄다.
+4. PlayMode `PurchaseSingleModeTests`·`GrabSingleModeTests` 실행 — Fusion **Single 모드**라 App ID 없이 실제 RPC·`[Networked]`·서버 물리 경로를 탄다.
 5. 2피어(Host + Client)로 돌리려면 Photon App ID가 필요하다. `PhotonAppSettings`는 커밋하지 않는다(gitignore).
 
 > 로컬에 SDK를 넣으면 `ProjectSettings.asset`에 `FUSION2`가 들어간다. 이것이 커밋되면 SDK 없는 CI가 Fusion 어셈블리를 컴파일하려다 실패한다. 저장소 루트에서 한 번:
@@ -106,7 +106,7 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 |---|---|---|
 | EditMode (Core) | **110** | 게이트 35 · 늦은 입장 20 · 멱등 구매 26 · 그랩 29 — 전부 UnityEngine 무의존 어셈블리 |
 | PlayMode (데모 흐름) | **2** | 실제 프레임 루프에서 연타 10회 → 요청 1회 / 게이트 우회 시 요청 10회·실행 1회 |
-| PlayMode (Fusion, SDK 설치 시) | 1 (미검증) | Single 모드 실제 RPC: 같은 요청 ID 2회 → 차감 1회·두 번째는 재응답. Fusion 2.0.6 + Unity 6000.3 조합에서는 SDK 에디터 코드 비호환으로 실행 불가 — [상세](docs/analysis/verification.md#fusion-런타임) |
+| PlayMode (Fusion, SDK 설치 시) | **2** | Fusion 2.0.6 · Unity 6000.0.58f2 Single 모드에서 통과. 구매: 같은 요청 ID 2회 → 차감 1회·재응답 / 그랩: 잡기 → 한도 초과 거부 → 놓기 → 서버 물리 정지 → 표시 자세 = 서버 정지 자세. Unity 6000.3에서는 SDK 2.0.6 에디터 코드 비호환으로 실행 불가 — [상세](docs/analysis/verification.md#fusion-런타임) |
 
 대표 불변식 테스트(측정 조건과 결과: [docs/analysis/verification.md](docs/analysis/verification.md)):
 
@@ -122,7 +122,7 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 - **멱등 캐시는 메모리** — 서버 재시작·용량 초과 시 보호가 약해진다. 비소모성 아이템은 보유 검사가 한 번 더 막지만, 소모성 재화는 DB 유니크 키(요청 ID)가 필요하다.
 - **PlayerRef 재사용** — 샘플은 세션 슬롯 번호를 키로 쓰고 퇴장 시 상태를 지운다. 실제 서비스는 계정 ID를 키로 둔다.
 - **그랩은 서버 확정** — 클라 예측이 없어 잡는 반응이 왕복 지연만큼 늦다. 예측 후 거절 시 롤백이 다음 단계.
-- **Fusion 런타임 미검증** — 어댑터는 컴파일·IL 위빙까지 확인했고, 판정 로직은 Core 테스트가 덮는다. 실제 `NetworkRunner` 위 실행은 Unity 6.3 호환 SDK로 다시 돌려야 한다.
+- **Fusion 검증 범위** — Single 모드(피어 1개, Unity 6000.0.58f2)까지 실제 `NetworkRunner`로 검증했다. Host가 스스로 보낸 요청은 `HostMode = SourceIsHostPlayer`로 처리했다(기본값이면 Host 요청의 `info.Source`가 None이 되어 Host 플레이어의 구매가 버려진다). Host + Client 2피어와 Dedicated Server는 App ID가 필요해 아직 돌리지 않았다.
 - **2피어 데모** — Photon App ID가 필요해 2피어 GIF는 아직 없다.
 - **샘플 위치** — 데모는 UPM `Samples~`가 아니라 이 저장소(호스트 프로젝트)의 `Assets/Demos/`에 있다. 패키지만 가져가는 경우 데모는 따라가지 않는다.
 
