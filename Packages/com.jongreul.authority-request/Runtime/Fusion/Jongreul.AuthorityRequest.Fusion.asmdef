@@ -1,0 +1,20 @@
+{
+    "name": "Jongreul.AuthorityRequest.Fusion",
+    "rootNamespace": "Jongreul.AuthorityRequest.Networking",
+    "references": [
+        "Jongreul.AuthorityRequest.Core",
+        "Jongreul.AuthorityRequest",
+        "Fusion.Unity"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "FUSION2"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

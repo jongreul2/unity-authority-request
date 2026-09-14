@@ -1,0 +1,23 @@
+{
+    "name": "Jongreul.AuthorityRequest.Demos.Fusion.Editor",
+    "rootNamespace": "Jongreul.AuthorityRequest.Demos.Fusion.Editor",
+    "references": [
+        "Jongreul.AuthorityRequest.Core",
+        "Jongreul.AuthorityRequest",
+        "Jongreul.AuthorityRequest.Fusion",
+        "Fusion.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "FUSION2"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

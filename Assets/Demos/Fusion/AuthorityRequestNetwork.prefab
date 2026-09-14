@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4828176068097739512
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5788694941488880120}
+  - component: {fileID: 7945705081395827286}
+  - component: {fileID: 2174970336600331675}
+  - component: {fileID: 3322082321349054514}
+  m_Layer: 0
+  m_Name: AuthorityRequestNetwork
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5788694941488880120
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4828176068097739512}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7945705081395827286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4828176068097739512}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
+  SortKey: 1933517828
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours:
+  - {fileID: 2174970336600331675}
+  - {fileID: 3322082321349054514}
+  ForceRemoteRenderTimeframe: 0
+--- !u!114 &2174970336600331675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4828176068097739512}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23fd5964f26e1de4f8edda1865d55c5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Jongreul.AuthorityRequest.Fusion::Jongreul.AuthorityRequest.Networking.PurchaseAuthority
+  priceTable: {fileID: 11400000, guid: a57ca1acbdf3e714cb3e934dc8114f0f, type: 2}
+  startingBalance: 1000
+  replayTtlSeconds: 120
+  _Balances:
+    _items: []
+--- !u!114 &3322082321349054514
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4828176068097739512}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b59c325e6db9654bb87ec378b38d3ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Jongreul.AuthorityRequest.Fusion::Jongreul.AuthorityRequest.Networking.GrabAuthority
+  objects: []
+  maxHeldTotal: 1
+  whenFull: 0
+  restSpeed: 0.05
+  restTicks: 10
+  proxySmoothing: 0.35
