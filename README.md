@@ -8,9 +8,21 @@
 
 라이브 VR 멀티플레이 게임 개발 중 해결한 문제를 회사 코드 없이 범용으로 다시 구현했습니다.
 
-![응답 게이트 데모: 연타 10회가 요청 1회로, 게이트를 끄면 서버가 거절](docs/images/gate-demo.gif)
+**이 저장소는 기능 데모가 아니라 코드 샘플입니다.** 판정 로직은 전부 UnityEngine 참조가 없는 C# 어셈블리에 있고, 119개 EditMode 테스트가 동작을 고정합니다. 데모 씬은 확인용으로만 두었습니다.
 
-<sub>연타 10회 → 요청 1회 · 서버 실행 1회. 게이트를 끄면 매 탭이 요청이 되고 서버 쿨타임이 나머지를 거절한다. (지연 350 ms, 헤드리스 캡처)</sub>
+## 읽는 순서
+
+코드를 보러 오셨다면 이 순서를 권합니다. 전부 `Packages/com.jongreul.authority-request/` 아래에 있습니다.
+
+| # | 파일 | 무엇을 보면 되는지 |
+|---|---|---|
+| 1 | `Runtime/Core/Gate/ActionGate.cs` | 상태머신 하나로 연타·중복 응답·역전 응답·타임아웃을 어떻게 정리하는지. 시퀀스 번호가 핵심 |
+| 2 | `Tests/EditMode/Gate/ActionGateTests.cs` | 위 클래스의 동작 명세 30개. 테스트 이름만 읽어도 설계 의도가 보이게 썼습니다 |
+| 3 | `Tests/EditMode/Gate/MockGateServerTests.cs` | 지연·지터·실패·중복을 섞은 3,000회 혼돈 실행에서 지키는 불변식 |
+| 4 | `Runtime/Core/LateJoin/SnapshotRequester.cs` | 늦은 입장자가 스스로 요청하고, 버전 빈칸을 유예했다가 재요청하는 흐름 |
+| 5 | `Runtime/Core/Purchase/PurchaseLedger.cs` · `IdempotencyCache.cs` | 같은 요청 ID를 두 번 받아도 한 번만 차감하는 서버 쪽 장부 |
+| 6 | `Runtime/Core/Grab/GrabArbiter.cs` | 여러 명이 같은 물체를 잡을 때 선착 소유·세대 번호·서버 정지 판정 |
+| 7 | `Runtime/Fusion/PurchaseAuthority.cs` · `GrabAuthority.cs` | 위 순수 로직을 Photon Fusion 2의 RPC와 `[Networked]`에 얹는 어댑터 |
 
 ---
 
@@ -132,7 +144,7 @@ Photon Fusion SDK는 라이선스 때문에 저장소에 넣지 않았다.
 
 ## 관련 포트폴리오
 
-- 포트폴리오(Notion): _링크 추가 예정_
+- 포트폴리오(Notion): [강종렬 포트폴리오 2026](https://app.notion.com/p/jongreulk/2026-3d849fd9829281cba738df3134fa9b8a)
 
 ---
 
