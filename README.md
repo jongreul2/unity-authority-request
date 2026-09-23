@@ -1,7 +1,7 @@
 # unity-authority-request
 
 ![Unity](https://img.shields.io/badge/Unity-6000.3%20LTS-black?logo=unity)
-![Tests](https://img.shields.io/badge/EditMode-119%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/EditMode-119%20(local)-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 **서버 응답을 권위로 두는 클라이언트 패턴 4종** — 응답 게이트 · 늦은 입장 스냅샷 · 멱등 구매 · 그랩 소유권 판정.
@@ -9,6 +9,8 @@
 라이브 VR 멀티플레이 게임 개발 중 해결한 문제를 회사 코드 없이 범용으로 다시 구현했습니다.
 
 **이 저장소는 기능 데모가 아니라 코드 샘플입니다.** 판정 로직은 전부 UnityEngine 참조가 없는 C# 어셈블리에 있고, 119개 EditMode 테스트가 동작을 고정합니다. 데모 씬은 확인용으로만 두었습니다.
+
+이 저장소는 Claude Code와 함께 작성했습니다. 문제 정의·설계·테스트 시나리오·검증 판정과 최종 결정은 본인이 했고, 구현 초안과 반복 작업은 AI가 보조했습니다. 커밋 이력의 `Co-Authored-By` 트레일러가 그 기록입니다.
 
 ## 읽는 순서
 
